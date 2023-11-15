@@ -1,0 +1,50 @@
+pipeline {
+    agent {label 'testJenkins'}
+
+    stages {
+        stage('mvn install') {
+            steps {
+                sh '''
+                    cd codeBase/DockerTest
+                    mvn clean install
+                '''
+            }
+        }
+        stage('Docker Build'){
+            steps{
+                script{
+                   def imageName = sh(returnStdout:true, script: 'docker images -q saptarship/testjenkintag:latest').trim()
+                   println imageName
+                   if (imageName != ""){
+                       println "I am here"
+                       sh '''
+                           docker rmi saptarship/testjenkintag:latest
+                           cd codeBase/DockerTest/
+                           docker build -t saptarship/testjenkintag:latest .
+                       '''
+                   }else{
+                       sh '''
+                           cd codeBase/DockerTest/
+                           docker build -t saptarship/testjenkintag:latest .
+                       '''
+                   }
+                }
+            }
+        }
+        stage('Docker Push'){
+            steps{
+                sh '''
+                    docker push saptarship/testjenkintag:latest
+                '''
+            }
+        }
+        stage('Kubernetes Deployment'){
+            steps{
+                sh '''
+                    cd /scratch/nodes/workspace/testPipeline/kuberenetesConfig
+                    kubectl --kubeconfig=/scratch/nodes/workspace/testPipeline/kuberenetesConfig/k8s-1-28-2-do-0-blr1-1700061473836-kubeconfig.yaml create -f testDeployment.yaml
+                '''
+            }
+        }
+    }
+}
